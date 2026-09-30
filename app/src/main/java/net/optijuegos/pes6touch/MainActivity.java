@@ -1,24 +1,45 @@
 package net.optijuegos.pes6touch;
 
 import android.app.Activity;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class MainActivity extends Activity {
-    private WebView web;
     private static final String GAME_URL = "https://pes6.optijuegos.net/";
+    private WebView web;
+    private ControllerOverlay controller;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         immersive();
+
+        FrameLayout root = new FrameLayout(this);
         web = new WebView(this);
-        web.setBackgroundColor(0xff000000);
+        web.setBackgroundColor(Color.BLACK);
+        web.setFocusable(true);
+        web.setFocusableInTouchMode(true);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -30,29 +51,289 @@ public class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.setWebChromeClient(new WebChromeClient());
-        web.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                installControls();
-            }
-        });
-        setContentView(web);
+        web.setWebViewClient(new WebViewClient());
+        root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        controller = new ControllerOverlay();
+        root.addView(controller, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+        web.requestFocus();
         web.loadUrl(GAME_URL);
     }
 
-    private void installControls() {
-        web.evaluateJavascript("(function(){if(window.__pesTouchInstalled)return;window.__pesTouchInstalled=true;" +
-            "const css=`#pt-root{position:fixed;inset:0;z-index:2147483647;pointer-events:none;font-family:Arial,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}.pt-stick{position:absolute;left:5vw;bottom:6vh;width:min(31vw,150px);height:min(31vw,150px);border-radius:50%;background:rgba(30,34,42,.45);border:2px solid rgba(255,255,255,.58);pointer-events:auto;touch-action:none;display:grid;place-items:center}.pt-knob{width:43%;height:43%;border-radius:50%;background:rgba(230,235,245,.78);border:2px solid white;box-shadow:0 2px 8px #0008;transform:translate(0,0)}.pt-cluster{position:absolute;right:5vw;bottom:5vh;width:min(43vw,220px);height:min(39vw,180px);pointer-events:none}.pt-btn{position:absolute;width:min(16vw,68px);height:min(16vw,68px);border-radius:50%;border:2px solid #ffffffaa;background:#173e91bb;color:white;font-size:clamp(17px,4vw,25px);font-weight:bold;display:grid;place-items:center;pointer-events:auto;touch-action:none;box-shadow:0 3px 9px #0008}.pt-x{right:5%;top:35%}.pt-o{right:28%;top:8%;background:#a92528bb}.pt-sq{right:50%;top:35%;background:#7b348dbb}.pt-tri{right:28%;top:62%;background:#24864ebb}.pt-meta{position:absolute;top:2vh;right:3vw;display:flex;gap:10px;pointer-events:none}.pt-small{width:54px;height:35px;border-radius:16px;background:#161a20a8;color:white;border:1px solid #ffffff88;font-size:14px;pointer-events:auto;touch-action:none}.pt-start{position:absolute;top:2vh;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:18px;background:#161a20ad;color:white;border:1px solid #ffffff88;font-weight:bold;pointer-events:auto;touch-action:none}#pt-hint{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);color:#fff;background:#0009;border-radius:10px;padding:4px 9px;font-size:11px;opacity:.82;pointer-events:none}`;" +
-            "const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);const root=document.createElement('div');root.id='pt-root';root.innerHTML='<div class=pt-stick><div class=pt-knob></div></div><div class=pt-cluster><button class=pt-btn pt-x data-key=KeyX>X</button><button class=pt-btn pt-o data-key=KeyD>O</button><button class=pt-btn pt-sq data-key=KeyA>□</button><button class=pt-btn pt-tri data-key=KeyW>△</button></div><div class=pt-meta><button class=pt-small data-key=KeyQ>L1</button><button class=pt-small data-key=KeyE>R1</button><button class=pt-small data-key=KeyZ>L2</button><button class=pt-small data-key=KeyC>R2</button></div><button class=pt-start data-key=Space>START</button><div id=pt-hint>Joystick + botones táctiles · tocá START para comenzar</div>';document.body.appendChild(root);" +
-            "const down=new Set();function target(){return document.activeElement||document.querySelector('canvas')||document.body}function send(code,isDown){const key=code==='Space'?' ':code.replace('Key','').toLowerCase();const ev=new KeyboardEvent(isDown?'keydown':'keyup',{key:key,code:code,bubbles:true,cancelable:true});target().dispatchEvent(ev);}function setKey(code,on){if(on&&!down.has(code)){down.add(code);send(code,true)}else if(!on&&down.has(code)){down.delete(code);send(code,false)}}" +
-            "root.querySelectorAll('[data-key]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);setKey(b.dataset.key,true)});const up=e=>{e.preventDefault();setKey(b.dataset.key,false)};b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up)});" +
-            "const stick=root.querySelector('.pt-stick'),knob=root.querySelector('.pt-knob');let pid=null;let active=[];function release(){active.forEach(k=>setKey(k,false));active=[];knob.style.transform='translate(0,0)'}function move(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,max=r.width*.34,len=Math.hypot(dx,dy),scale=len>max?max/len:1,x=dx*scale,y=dy*scale;knob.style.transform='translate('+x+'px,'+y+'px)';const nx=x/max,ny=y/max,n=[];if(ny<-.28)n.push('ArrowUp');if(ny>.28)n.push('ArrowDown');if(nx<-.28)n.push('ArrowLeft');if(nx>.28)n.push('ArrowRight');active.filter(k=>!n.includes(k)).forEach(k=>setKey(k,false));n.filter(k=>!active.includes(k)).forEach(k=>setKey(k,true));active=n}stick.addEventListener('pointerdown',e=>{e.preventDefault();pid=e.pointerId;stick.setPointerCapture(pid);move(e)});stick.addEventListener('pointermove',e=>{if(e.pointerId===pid)move(e)});stick.addEventListener('pointerup',e=>{if(e.pointerId===pid){release();pid=null}});stick.addEventListener('pointercancel',()=>{release();pid=null});document.addEventListener('visibilitychange',()=>{if(document.hidden){Array.from(down).forEach(k=>setKey(k,false));release()}});})();", null);
+    private void sendKey(int code, boolean down) {
+        if (web == null) return;
+        web.requestFocus();
+        long now = SystemClock.uptimeMillis();
+        web.dispatchKeyEvent(new KeyEvent(now, now, down ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP, code, 0));
     }
 
     private void immersive() {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
     }
-    @Override public void onWindowFocusChanged(boolean hasFocus) { super.onWindowFocusChanged(hasFocus); if(hasFocus) immersive(); }
-    @Override public void onBackPressed() { if(web!=null && web.canGoBack()) web.goBack(); else super.onBackPressed(); }
-    @Override protected void onDestroy() { if(web!=null) web.destroy(); super.onDestroy(); }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) immersive();
+    }
+
+    @Override public void onBackPressed() {
+        if (web != null && web.canGoBack()) web.goBack();
+        else super.onBackPressed();
+    }
+
+    @Override protected void onDestroy() {
+        if (controller != null) controller.releaseAll();
+        if (web != null) web.destroy();
+        super.onDestroy();
+    }
+
+    private final class ControllerOverlay extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final List<Button> buttons = new ArrayList<>();
+        private final Map<Integer, Integer> pointerButtons = new HashMap<>();
+        private final Map<Integer, Set<Integer>> sources = new HashMap<>();
+        private final Map<Integer, Integer> keyCounts = new HashMap<>();
+        private int stickPointer = -1;
+        private float width, height, density, stickX, stickY, stickRadius, stickKnobX, stickKnobY;
+        private float faceX, faceY, faceRadius, faceSpacing;
+        private static final int STICK_SOURCE = -999;
+        private static final int CIRCLE_BLUE = 0xDD2366B5;
+        private static final int CIRCLE_RED = 0xDDD34343;
+        private static final int CIRCLE_PURPLE = 0xDD843FA2;
+        private static final int CIRCLE_GREEN = 0xDD278C60;
+
+        private final class Button {
+            final String id, label;
+            final int key, color;
+            final RectF rect;
+            final float cx, cy, radius;
+            final boolean round;
+            Button(String id, String label, int key, int color, RectF rect) {
+                this.id = id; this.label = label; this.key = key; this.color = color; this.rect = rect;
+                this.cx = rect.centerX(); this.cy = rect.centerY(); this.radius = rect.width() / 2f; this.round = true;
+            }
+            Button(String id, String label, int key, RectF rect) {
+                this.id = id; this.label = label; this.key = key; this.color = 0xAA18212D; this.rect = rect;
+                this.cx = rect.centerX(); this.cy = rect.centerY(); this.radius = 0; this.round = false;
+            }
+        }
+
+        ControllerOverlay() {
+            super(MainActivity.this);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            setClickable(true);
+            setFocusable(false);
+        }
+
+        private float dp(float value) { return value * density; }
+
+        private void layoutControls() {
+            density = getResources().getDisplayMetrics().density;
+            width = getWidth(); height = getHeight();
+            if (width <= 0 || height <= 0) return;
+            buttons.clear();
+            float margin = dp(14), top = dp(12), pillW = dp(58), pillH = dp(34), gap = dp(7);
+            addPill("L2", "L2", KeyEvent.KEYCODE_Z, margin, top, pillW, pillH);
+            addPill("L1", "L1", KeyEvent.KEYCODE_Q, margin + pillW + gap, top, pillW, pillH);
+            addPill("R1", "R1", KeyEvent.KEYCODE_E, width - margin - (pillW * 2) - gap, top, pillW, pillH);
+            addPill("R2", "R2", KeyEvent.KEYCODE_C, width - margin - pillW, top, pillW, pillH);
+            float mid = width / 2f;
+            addPill("SELECT", "SELECT", KeyEvent.KEYCODE_DEL, mid - dp(77), top, dp(68), pillH);
+            addPill("START", "START", KeyEvent.KEYCODE_SPACE, mid + dp(9), top, dp(68), pillH);
+
+            stickRadius = Math.min(dp(66), height * .19f);
+            stickX = dp(22) + stickRadius;
+            stickY = height - dp(18) - stickRadius;
+            if (stickPointer < 0) { stickKnobX = stickX; stickKnobY = stickY; }
+
+            faceRadius = Math.min(dp(28), height * .078f);
+            faceSpacing = faceRadius * 1.75f;
+            faceX = width - dp(24) - faceRadius - faceSpacing;
+            faceY = height - dp(19) - faceRadius - faceSpacing;
+            addFace("TRIANGLE", "△", KeyEvent.KEYCODE_W, CIRCLE_GREEN, faceX, faceY - faceSpacing);
+            addFace("SQUARE", "□", KeyEvent.KEYCODE_A, CIRCLE_PURPLE, faceX - faceSpacing, faceY);
+            addFace("CIRCLE", "○", KeyEvent.KEYCODE_D, CIRCLE_RED, faceX + faceSpacing, faceY);
+            addFace("CROSS", "×", KeyEvent.KEYCODE_X, CIRCLE_BLUE, faceX, faceY + faceSpacing);
+        }
+
+        private void addPill(String id, String label, int key, float x, float y, float w, float h) {
+            buttons.add(new Button(id, label, key, new RectF(x, y, x + w, y + h)));
+        }
+        private void addFace(String id, String label, int key, int color, float x, float y) {
+            buttons.add(new Button(id, label, key, color, new RectF(x - faceRadius, y - faceRadius, x + faceRadius, y + faceRadius)));
+        }
+
+        @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+            super.onSizeChanged(w, h, oldw, oldh);
+            layoutControls();
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            layoutControls();
+            if (width <= 0 || height <= 0) return;
+            drawStick(canvas);
+            for (Button b : buttons) drawButton(canvas, b);
+        }
+
+        private void drawStick(Canvas canvas) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0x66252D38);
+            canvas.drawCircle(stickX, stickY, stickRadius, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(2));
+            paint.setColor(0xDDEEF2F7);
+            canvas.drawCircle(stickX, stickY, stickRadius, paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0x22FFFFFF);
+            canvas.drawCircle(stickX, stickY, stickRadius * .63f, paint);
+            float knobR = stickRadius * .34f;
+            paint.setColor(0xDDE7ECF3);
+            canvas.drawCircle(stickKnobX, stickKnobY, knobR, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(2));
+            paint.setColor(Color.WHITE);
+            canvas.drawCircle(stickKnobX, stickKnobY, knobR, paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawButton(Canvas canvas, Button b) {
+            boolean active = keyCounts.containsKey(b.key);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(active ? 0xF0FFFFFF : b.color);
+            if (b.round) canvas.drawCircle(b.cx, b.cy, b.radius, paint);
+            else canvas.drawRoundRect(b.rect, dp(18), dp(18), paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(1.5f));
+            paint.setColor(active ? Color.WHITE : 0xDDEEF2F7);
+            if (b.round) canvas.drawCircle(b.cx, b.cy, b.radius, paint);
+            else canvas.drawRoundRect(b.rect, dp(18), dp(18), paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(active ? 0xFF17202A : Color.WHITE);
+            paint.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTextSize(b.round ? faceRadius * 1.15f : dp(b.label.length() > 4 ? 10 : 12));
+            Paint.FontMetrics fm = paint.getFontMetrics();
+            canvas.drawText(b.label, b.cx, b.cy - (fm.ascent + fm.descent) / 2f, paint);
+        }
+
+        private Button hitButton(float x, float y) {
+            for (Button b : buttons) {
+                if (b.round) {
+                    float dx = x - b.cx, dy = y - b.cy;
+                    if (dx * dx + dy * dy <= (b.radius + dp(8)) * (b.radius + dp(8))) return b;
+                } else if (b.rect.contains(x, y)) return b;
+            }
+            return null;
+        }
+
+        private boolean insideStick(float x, float y) {
+            float dx = x - stickX, dy = y - stickY;
+            return dx * dx + dy * dy <= (stickRadius * 1.45f) * (stickRadius * 1.45f);
+        }
+
+        private void updateStick(float x, float y) {
+            float dx = x - stickX, dy = y - stickY;
+            float max = stickRadius * .68f;
+            float len = (float) Math.hypot(dx, dy);
+            if (len > max && len > 0) { dx *= max / len; dy *= max / len; }
+            stickKnobX = stickX + dx;
+            stickKnobY = stickY + dy;
+            float nx = dx / max, ny = dy / max;
+            Set<Integer> next = new HashSet<>();
+            if (ny < -.28f) next.add(KeyEvent.KEYCODE_I);
+            if (ny > .28f) next.add(KeyEvent.KEYCODE_K);
+            if (nx < -.28f) next.add(KeyEvent.KEYCODE_J);
+            if (nx > .28f) next.add(KeyEvent.KEYCODE_L);
+            updateSource(STICK_SOURCE, next);
+            invalidate();
+        }
+
+        private void updateSource(int source, Set<Integer> next) {
+            Set<Integer> old = sources.get(source);
+            if (old == null) old = new HashSet<>();
+            for (int code : old) if (!next.contains(code)) removeKey(code);
+            for (int code : next) if (!old.contains(code)) addKey(code);
+            if (next.isEmpty()) sources.remove(source);
+            else sources.put(source, new HashSet<>(next));
+        }
+
+        private void addKey(int code) {
+            int count = keyCounts.containsKey(code) ? keyCounts.get(code) : 0;
+            keyCounts.put(code, count + 1);
+            if (count == 0) sendKey(code, true);
+        }
+
+        private void removeKey(int code) {
+            Integer count = keyCounts.get(code);
+            if (count == null) return;
+            if (count <= 1) { keyCounts.remove(code); sendKey(code, false); }
+            else keyCounts.put(code, count - 1);
+        }
+
+        private boolean beginPointer(int id, float x, float y) {
+            if (insideStick(x, y) && stickPointer < 0) {
+                stickPointer = id;
+                updateStick(x, y);
+                return true;
+            }
+            Button b = hitButton(x, y);
+            if (b != null) {
+                pointerButtons.put(id, b.key);
+                Set<Integer> one = new HashSet<>(); one.add(b.key);
+                updateSource(id, one);
+                invalidate();
+                return true;
+            }
+            return !pointerButtons.isEmpty() || stickPointer >= 0;
+        }
+
+        private void endPointer(int id) {
+            Integer key = pointerButtons.remove(id);
+            if (key != null) updateSource(id, new HashSet<Integer>());
+            if (stickPointer == id) {
+                stickPointer = -1;
+                updateSource(STICK_SOURCE, new HashSet<Integer>());
+                stickKnobX = stickX; stickKnobY = stickY;
+            }
+            invalidate();
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            int action = event.getActionMasked();
+            int index = event.getActionIndex();
+            if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+                boolean handled = beginPointer(event.getPointerId(index), event.getX(index), event.getY(index));
+                return handled;
+            }
+            if (action == MotionEvent.ACTION_MOVE) {
+                boolean handled = !pointerButtons.isEmpty() || stickPointer >= 0;
+                if (stickPointer >= 0) {
+                    for (int i = 0; i < event.getPointerCount(); i++) {
+                        if (event.getPointerId(i) == stickPointer) {
+                            updateStick(event.getX(i), event.getY(i));
+                            break;
+                        }
+                    }
+                }
+                return handled;
+            }
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
+                int id = event.getPointerId(index);
+                boolean handled = pointerButtons.containsKey(id) || stickPointer == id || !pointerButtons.isEmpty() || stickPointer >= 0;
+                endPointer(id);
+                return handled;
+            }
+            if (action == MotionEvent.ACTION_CANCEL) { releaseAll(); return true; }
+            return !pointerButtons.isEmpty() || stickPointer >= 0;
+        }
+
+        void releaseAll() {
+            for (int code : new HashSet<>(keyCounts.keySet())) sendKey(code, false);
+            keyCounts.clear(); sources.clear(); pointerButtons.clear(); stickPointer = -1;
+            stickKnobX = stickX; stickKnobY = stickY;
+            invalidate();
+        }
+    }
 }
